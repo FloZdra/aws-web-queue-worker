@@ -4,7 +4,10 @@ import boto3
 sqs = boto3.resource('sqs')
 
 # Create the queue. This returns an SQS.Queue instance
-queue = sqs.create_queue(QueueName='web-worker-queue', Attributes={'DelaySeconds': '5'})
+request = sqs.create_queue(QueueName='requestQueue', Attributes={'DelaySeconds': '500'})
+response = sqs.create_queue(QueueName='responseQueue', Attributes={'DelaySeconds': '500'})
 
-print(queue.url)
-print(queue.attributes.get('DelaySeconds'))
+print(request.url)
+print(request.attributes.get('DelaySeconds'))
+print(response.url)
+print(response.attributes.get('DelaySeconds'))
