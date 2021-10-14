@@ -30,11 +30,11 @@ class CalculationService:
         """
         message_attr: dict = {
             'Numbers': {
-                'StringValue': json.dumps(_nums),
+                'StringValue': _nums,
                 'DataType': 'String'
             }
         }
-        request = self.response_queue.send_message(MessageBody='Calculation', MessageAttributes=message_attr)
+        request = self.request_queue.send_message(MessageBody='Calculation', MessageAttributes=message_attr)
         return request['MessageId']
 
     def get_message(self, _message_id: str):
@@ -43,8 +43,11 @@ class CalculationService:
         :param _message_id:
         :return: the calculation response
         """
-        for message in self.response_queue.receive_messages(MaxNumberOfMessages=10, MessageAttributeNames=['Numbers']):
-            if message.message_id == _message_id:
-                return message.message_attributes
+        for message in self.response_queue.receive_messages(MaxNumberOfMessages=10, MessageAttributeNames=['Result']):
+            if message.body == _message_id:
+                response = message
+                message.delete
+                return response.message_attributes
+            
 
         return None
