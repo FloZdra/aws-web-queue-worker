@@ -54,4 +54,4 @@ def create_instance():
                 'Tags': [{'Key': 'Name', 'Value': 'ec2_queue_worker'}]
             }]
         )
-        return instances
+        return instances[0]['ImageId']

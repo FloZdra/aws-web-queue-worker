@@ -13,69 +13,51 @@ sqs = boto3.resource('sqs')
 
 
 def main():
-    create_key_pair()
-    create_instance()
-
-    instance_id = 'ec2_queue_worker'
-    action = sys.argv[1].upper()
-
-    ec2 = boto3.client('ec2')
-
-    if action == 'ON':
-        # Do a dryrun first to verify permissions
-        try:
-            ec2.start_instances(InstanceIds=[instance_id], DryRun=True)
-        except ClientError as e:
-            if 'DryRunOperation' not in str(e):
-                raise
-
-        # Dry run succeeded, run start_instances without dryrun
-        try:
-            response = ec2.start_instances(InstanceIds=[instance_id], DryRun=False)
-            print(response)
-
-            worker_process()
-        except ClientError as e:
-            print(e)
-    else:
-        # Do a dryrun first to verify permissions
-        try:
-            ec2.stop_instances(InstanceIds=[instance_id], DryRun=True)
-        except ClientError as e:
-            if 'DryRunOperation' not in str(e):
-                raise
-
-        # Dry run succeeded, call stop_instances without dryrun
-        try:
-            response = ec2.stop_instances(InstanceIds=[instance_id], DryRun=False)
-            print(response)
-        except ClientError as e:
-            print(e)
+    worker_process()
 
 
 def worker_process():
     # Get the queue
-    logging.info("Application has started")
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+    root.info('Application is starting')
+
+    sqs.create_queue(QueueName='requestQueue')
+    sqs.create_queue(QueueName='responseQueue')
     request_queue = sqs.get_queue_by_name(QueueName='requestQueue')
     response_queue = sqs.get_queue_by_name(QueueName='responseQueue')
     while 1:
         for message in request_queue.receive_messages(MessageAttributeNames=['Numbers']):
-            logging.info("New messages in requestQueue")
+            root.info("New messages in requestQueue")
             if message.message_attributes is not None:
-                id = message.message_attributes.get('Id')
-                numbers = json.loads(message.message_attributes.get('Numbers'))
-                if len(numbers) > 0:
-                    response_queue.send_message(MessageId=id, MessagAttributes={
-                        'Result': {
-                            'Mean': np.mean(numbers),
-                            'Median': np.median(numbers),
-                            'Max': np.max(numbers),
-                            'Min': np.min(numbers)
-                        }
-                    })
-                    # Let the queue know that the message is processed
-                    message.delete()
+                id = message.message_id
+                numbers = message.message_attributes.get('Numbers')
 
+                try:
+                    array_numbers = [int(i) for i in numbers['StringValue'].split()]
+                    if len(array_numbers) > 0:
+                        response_queue.send_message(MessageBody=id, MessageAttributes={
+                            'Result': {
+                                'StringValue': json.dumps({
+                                    'Mean': str(np.mean(array_numbers)),
+                                    'Median': str(np.median(array_numbers)),
+                                    'Max': str(np.max(array_numbers)),
+                                    'Min': str(np.min(array_numbers))}),
+                                'DataType': 'String'
+                            },
+                        }, )
+                        # Let the queue know that the message is processed
+                        root.info('Response sent ' + id)
+                        message.delete()
+                except Exception as e:
+                    root.error(e)
+                    message.delete()
 
 
 if __name__ == "__main__":
