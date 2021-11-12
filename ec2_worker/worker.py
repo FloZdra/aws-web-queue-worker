@@ -1,13 +1,12 @@
-# Get the service resource
 import logging
-
 import numpy as np
 import json
 import sys
 import boto3
-from botocore.exceptions import ClientError
+import uuid
+from datetime import datetime
 
-from ec2_instance_creation import create_key_pair, create_instance
+# datetime object containing current date and time
 
 sqs = boto3.resource('sqs')
 
@@ -17,6 +16,7 @@ def main():
 
 
 def worker_process():
+    log_bucket = retrieve_bucket()
     # Get the queue
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -42,22 +42,56 @@ def worker_process():
                 try:
                     array_numbers = [int(i) for i in numbers['StringValue'].split()]
                     if len(array_numbers) > 0:
+                        result = {
+                            'Mean': str(np.mean(array_numbers)),
+                            'Median': str(np.median(array_numbers)),
+                            'Max': str(np.max(array_numbers)),
+                            'Min': str(np.min(array_numbers))}
+
                         response_queue.send_message(MessageBody=id, MessageAttributes={
                             'Result': {
-                                'StringValue': json.dumps({
-                                    'Mean': str(np.mean(array_numbers)),
-                                    'Median': str(np.median(array_numbers)),
-                                    'Max': str(np.max(array_numbers)),
-                                    'Min': str(np.min(array_numbers))}),
+                                'StringValue': json.dumps(result),
                                 'DataType': 'String'
                             },
                         }, )
+
                         # Let the queue know that the message is processed
                         root.info('Response sent ' + id)
+
+                        add_log(log_bucket, {
+                            "id": id,
+                            "params": array_numbers,
+                            "result": result,
+                        })
+
                         message.delete()
                 except Exception as e:
                     root.error(e)
                     message.delete()
+
+
+def retrieve_bucket():
+    s3_client = boto3.client('s3')
+    bucket_name = 'log-bucket-681f6689c44546458ae5910ffc3a504a'
+
+    try:
+        return boto3.resource("s3").Bucket(bucket_name)
+    except Exception:
+        # Create bucket
+        s3_client.create_bucket(Bucket=bucket_name)
+        return boto3.resource("s3").Bucket(bucket_name)
+
+
+def add_log(log_bucket, log):
+    json.load_s3 = lambda k: json.load(log_bucket.Object(key=k).get()["Body"])
+    json.dump_s3 = lambda obj, k: log_bucket.Object(key=k).put(Body=json.dumps(obj))
+
+    data = json.load_s3("logs.json")
+
+    date_str = datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
+    data[date_str] = log  # Add log into log file
+
+    json.dump_s3(data, "logs.json")
 
 
 if __name__ == "__main__":

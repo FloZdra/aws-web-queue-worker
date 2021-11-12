@@ -1,12 +1,8 @@
-# echo.py
-
-import shlex
 import sys
 
-from boto3 import resource
-
-from CalculationService import CalculationService
+from calculation_serivce import CalculationService
 from menu import menu
+
 
 def main() -> int:
     print('Welcome to the web worker calculation tool using AWS services')
@@ -24,7 +20,7 @@ def main() -> int:
         else:
             message_id = calculation_service.send_message(message)
             response = None
-            while response == None:
+            while response is None:
                 response = calculation_service.get_message(message_id)
             print(response)
     return 0

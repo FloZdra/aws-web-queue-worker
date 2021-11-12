@@ -1,21 +1,15 @@
-# Get the service resource
-import logging
-
-import numpy as np
-import json
 import sys
 import boto3
 from botocore.exceptions import ClientError
 
-from ec2_instance_creation import create_key_pair, create_instance
-from ec2_worker import worker_process
+from instance_creation import create_key_pair, create_instance
+from worker import worker_process
 
 sqs = boto3.resource('sqs')
 
 
 def main():
     create_key_pair()
-
 
     instance_id = create_instance()
     action = sys.argv[1].upper()
@@ -52,9 +46,6 @@ def main():
             print(response)
         except ClientError as e:
             print(e)
-
-
-
 
 
 if __name__ == "__main__":

@@ -46,8 +46,7 @@ class CalculationService:
         for message in self.response_queue.receive_messages(MaxNumberOfMessages=10, MessageAttributeNames=['Result']):
             if message.body == _message_id:
                 response = message
-                message.delete
+                message.delete()
                 return response.message_attributes
-            
 
         return None
