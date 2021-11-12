@@ -16,6 +16,8 @@ Additional details
 - the client is limited to 10 numbers. If more numbers are entered, a message error should be sent
 - numbers must be positive - again a message error is sent to the client if one of the number is not positive
 
+[See the video demonstration](https://youtu.be/H_TNVm8578E)
+
 ### Client
 
 Client is composed of 3 files :
